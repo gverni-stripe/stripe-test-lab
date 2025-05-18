@@ -1,36 +1,101 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Stripe Test Lab
+
+Stripe Test Lab is a full stack app for running and validating Stripe test scenarios, built with Next.js (App Router), TypeScript, Tailwind CSS, and ESLint. It helps developers and QA teams test their Stripe integrations using real-world scenarios for Core Payments, Connect, and Billing.
+
+## Features
+
+- Securely input your Stripe secret key(s)
+- Categorized, searchable list of Stripe test cases (Core Payments, Connect, Billing)
+- Run individual or multiple test cases with checkboxes and action buttons
+- Real-time log output for test execution progress
+- Modern, accessible UI with glowing effects
+- No sensitive data is stored beyond the session
+- Extensible architecture for adding new test cases
 
 ## Getting Started
 
-First, run the development server:
+First, install dependencies:
+
+```bash
+npm install
+```
+
+Then, run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser to use the app.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Requirements
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+See [PROJECT_REQUIREMENTS.md](../PROJECT_REQUIREMENTS.md) for a full list of requirements and user stories.
 
-## Learn More
+## Stripe Test Case Sources
 
-To learn more about Next.js, take a look at the following resources:
+- [Core Payments](https://docs.stripe.com/testing)
+- [Connect](https://docs.stripe.com/connect/testing)
+- [Billing](https://docs.stripe.com/billing/testing)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deployment
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Deploy easily to Vercel or your preferred Next.js hosting provider.
 
-## Deploy on Vercel
+## Extending Test Cases (Adding New Groups or Scenarios)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Test cases are organized for easy extensibility:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Each group** (e.g., Core Payments, Connect, Billing) is defined in its own file in `src/test-cases/` (e.g., `core-payments.ts`).
+- **Each group file** exports an object with a `label` (group name) and a `testCases` array. Each test case includes metadata and a `handler` function for custom logic.
+- **All groups are imported in `src/test-cases/index.ts`**. To add or remove a group, simply update this index file.
+- **To add a new test case group:**
+  1. Create a new file in `src/test-cases/` (e.g., `issuing.ts`).
+  2. Export a group object with a `label` and `testCases` array.
+  3. Import and add it to the `allTestCaseGroups` array in `index.ts`.
+- **To add a new test case to a group:**
+  1. Edit the relevant group file and add a new object to its `testCases` array.
+  2. Each test case must have an `id`, `name`, `description`, `category` (subcategory), and a `handler` function.
+
+**Example group file:**
+```ts
+import Stripe from 'stripe';
+import { TestCaseGroup } from './types';
+
+export const corePayments: TestCaseGroup = {
+  label: 'Core Payments',
+  testCases: [
+    {
+      id: 'core-1',
+      name: 'Successful Payment',
+      description: 'Simulate a successful card payment.',
+      category: 'Card Payments',
+      docsUrl: 'https://docs.stripe.com/testing#cards',
+      handler: async (stripe: Stripe, { currency }) => {
+        // ...Stripe logic here...
+        return { message: '...' };
+      },
+    },
+    // Add more test cases here
+  ],
+};
+```
+
+**Example index file:**
+```ts
+import { corePayments } from './core-payments';
+import { connect } from './connect';
+import { billing } from './billing';
+
+export const allTestCaseGroups = [
+  corePayments,
+  connect,
+  billing,
+];
+```
+
+This pattern makes it easy to add, remove, or update test cases and groups without changing the main app logic.
+
+---
+
+This project was bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).

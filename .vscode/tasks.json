@@ -1,0 +1,14 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "shell",
+			"label": "Build Next.js App",
+			"command": "npm run build",
+			"group": "build",
+			"problemMatcher": [
+				"$tsc"
+			]
+		}
+	]
+}

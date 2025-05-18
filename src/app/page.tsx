@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { allTestCaseGroups } from '../test-cases';
 import { TestCase } from '../test-cases/types';
 
@@ -26,6 +26,15 @@ export default function Home() {
   const [log, setLog] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
   const [currency, setCurrency] = useState('usd');
+  const logEndRef = useRef<HTMLDivElement | null>(null);
+  const shouldScrollRef = useRef(false);
+
+  useEffect(() => {
+    if (shouldScrollRef.current && log.length > 0) {
+      logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      shouldScrollRef.current = false;
+    }
+  }, [log]);
 
   // Filtered test cases by search
   const filteredCases = allTestCases.filter(
@@ -53,6 +62,7 @@ export default function Home() {
   // Update runTest and runSelected to handle errors and log in red with emoji
   const runTest = async (id: string) => {
     setRunning(true);
+    shouldScrollRef.current = true;
     setLog(l => [...l, `Running test: ${id}`]);
     const result = await runTestCase(stripeKey, id, currency);
     if (result.error) {
@@ -65,6 +75,7 @@ export default function Home() {
 
   const runSelected = async () => {
     setRunning(true);
+    shouldScrollRef.current = true;
     for (const id of selected) {
       setLog(l => [...l, `Running test: ${id}`]);
       const result = await runTestCase(stripeKey, id, currency);
@@ -74,7 +85,28 @@ export default function Home() {
         setLog(l => [...l, `<span class='text-green-400'>✅ ${result.message || `Test completed: ${id}`}</span>`]);
       }
     }
+    setLog(l => [...l, "<span class='text-cyan-300'>🎉 All selected test cases have been executed.</span>"]);
     setRunning(false);
+  };
+
+  // Group/subgroup selection helpers
+  const handleGroupSelect = (groupLabel: string, checked: boolean) => {
+    const group = allTestCaseGroups.find(g => g.label === groupLabel);
+    if (!group) return;
+    const groupIds = group.testCases.map(tc => tc.id).filter(id => filteredCases.some(f => f.id === id));
+    setSelected(sel => checked
+      ? Array.from(new Set([...sel, ...groupIds]))
+      : sel.filter(id => !groupIds.includes(id))
+    );
+  };
+  const handleSubgroupSelect = (groupLabel: string, subcat: string, checked: boolean) => {
+    const group = allTestCaseGroups.find(g => g.label === groupLabel);
+    if (!group) return;
+    const subIds = group.testCases.filter(tc => tc.category === subcat && filteredCases.some(f => f.id === tc.id)).map(tc => tc.id);
+    setSelected(sel => checked
+      ? Array.from(new Set([...sel, ...subIds]))
+      : sel.filter(id => !subIds.includes(id))
+    );
   };
 
   // Helper: map Stripe object prefixes to dashboard URLs
@@ -85,27 +117,71 @@ export default function Home() {
     'ch_': (id) => `https://dashboard.stripe.com/test/payments/${id}`,
     'in_': (id) => `https://dashboard.stripe.com/test/invoices/${id}`,
     'sub_': (id) => `https://dashboard.stripe.com/test/subscriptions/${id}`,
-    'pm_': (id) => `https://dashboard.stripe.com/test/payment_methods/${id}`,
-    'setup_': (id) => `https://dashboard.stripe.com/test/setup_intents/${id}`,
-    'si_': (id) => `https://dashboard.stripe.com/test/setup_intents/${id}`,
-    'tok_': (id) => `https://dashboard.stripe.com/test/tokens/${id}`,
-    'ep_': (id) => `https://dashboard.stripe.com/test/express/${id}`,
-    // Add more as needed
+    'rfnd_': (id) => `https://dashboard.stripe.com/test/refunds/${id}`,
+    'dp_': (id) => `https://dashboard.stripe.com/test/disputes/${id}`,
   };
 
-  // Helper: linkify Stripe object IDs in a log line
-  function linkifyStripeIds(line: string): string {
-    // Regex for Stripe object IDs (common prefixes)
-    const regex = /\b([a-z]{2,6}_[A-Za-z0-9]+)\b/g;
-    return line.replace(regex, (match) => {
+  // Parse log entry for color, emoji, and clickable Stripe IDs (no dangerouslySetInnerHTML)
+  function renderLogEntry(entry: string) {
+    // Regex for <span class='text-...'>...</span>
+    const spanRegex = /<span class='(text-[^']+)'>([\s\S]*?)<\/span>/g;
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let match;
+    while ((match = spanRegex.exec(entry)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(linkifyStripeIdsReact(entry.slice(lastIndex, match.index)));
+      }
+      parts.push(
+        <span key={parts.length} className={match[1]}>{linkifyStripeIdsReact(match[2])}</span>
+      );
+      lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < entry.length) {
+      parts.push(linkifyStripeIdsReact(entry.slice(lastIndex)));
+    }
+    return <>{parts}</>;
+  }
+
+  // React version of linkifyStripeIds
+  function linkifyStripeIdsReact(line: string): React.ReactNode {
+    const regex = /\b([a-z]{2,5}_[a-zA-Z0-9]+)\b/g;
+    const nodes: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let match;
+    while ((match = regex.exec(line)) !== null) {
+      if (match.index > lastIndex) {
+        nodes.push(line.slice(lastIndex, match.index));
+      }
+      const id = match[1];
+      let url: string | null = null;
       for (const prefix in STRIPE_DASHBOARD_URLS) {
-        if (match.startsWith(prefix)) {
-          const url = STRIPE_DASHBOARD_URLS[prefix](match);
-          return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="text-cyan-300 underline hover:text-cyan-200 focus:outline-none focus:ring-2 focus:ring-cyan-400">${match}</a>`;
+        if (id.startsWith(prefix)) {
+          url = STRIPE_DASHBOARD_URLS[prefix](id);
+          break;
         }
       }
-      return match;
-    });
+      if (url) {
+        nodes.push(
+          <a
+            key={nodes.length}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline text-cyan-300 hover:text-cyan-400"
+          >
+            {id}
+          </a>
+        );
+      } else {
+        nodes.push(id);
+      }
+      lastIndex = match.index + id.length;
+    }
+    if (lastIndex < line.length) {
+      nodes.push(line.slice(lastIndex));
+    }
+    return nodes;
   }
 
   return (
@@ -153,69 +229,109 @@ export default function Home() {
         />
       </div>
       <div className="w-full max-w-2xl bg-slate-900/80 rounded-lg p-4 shadow-lg mb-6">
-        {allTestCaseGroups.map((group) => (
-          <div key={group.label} className="mb-4">
-            <h2 className="text-xl font-semibold mb-2">{group.label}</h2>
-            {/* Group by subcategory (category) */}
-            {Array.from(new Set(group.testCases.map(tc => tc.category))).map(subcat => (
-              <div key={subcat} className="mb-2">
-                <h3 className="text-lg font-medium mb-1 text-cyan-300">{subcat}</h3>
-                <ul className="space-y-2">
-                  {group.testCases.filter(tc => tc.category === subcat && filteredCases.some(f => f.id === tc.id)).map(tc => (
-                    <li
-                      key={tc.id}
-                      className="flex items-center gap-3 bg-slate-800/60 rounded p-3 hover:ring-2 hover:ring-cyan-400 transition-shadow"
-                    >
+        {/* Run Selected button at the top */}
+        <button
+          className="w-full mb-4 py-2 rounded bg-cyan-700 hover:bg-cyan-600 text-white font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed medium-glow"
+          onClick={runSelected}
+          disabled={selected.length === 0 || running || !stripeKey}
+        >
+          Run Selected
+        </button>
+        {allTestCaseGroups.map((group) => {
+          const groupIds = group.testCases.map(tc => tc.id).filter(id => filteredCases.some(f => f.id === id));
+          const allGroupSelected = groupIds.length > 0 && groupIds.every(id => selected.includes(id));
+          const someGroupSelected = groupIds.some(id => selected.includes(id));
+          return (
+            <div key={group.label} className="mb-4">
+              <div className="flex items-center mb-2">
+                <input
+                  type="checkbox"
+                  checked={allGroupSelected}
+                  ref={el => { if (el) el.indeterminate = !allGroupSelected && someGroupSelected; }}
+                  onChange={e => handleGroupSelect(group.label, e.target.checked)}
+                  className="accent-cyan-400 mr-2"
+                  disabled={running || groupIds.length === 0}
+                />
+                <h2 className="text-xl font-semibold">{group.label}</h2>
+              </div>
+              {/* Group by subcategory (category) */}
+              {Array.from(new Set(group.testCases.map(tc => tc.category))).map(subcat => {
+                const subIds = group.testCases.filter(tc => tc.category === subcat && filteredCases.some(f => f.id === tc.id)).map(tc => tc.id);
+                const allSubSelected = subIds.length > 0 && subIds.every(id => selected.includes(id));
+                const someSubSelected = subIds.some(id => selected.includes(id));
+                return (
+                  <div key={subcat} className="mb-2">
+                    <div className="flex items-center mb-1 ml-2"> {/* Reduced subgroup indent */}
                       <input
                         type="checkbox"
-                        checked={selected.includes(tc.id)}
-                        onChange={() => handleSelect(tc.id)}
-                        disabled={running}
-                        className="accent-cyan-400"
+                        checked={allSubSelected}
+                        ref={el => { if (el) el.indeterminate = !allSubSelected && someSubSelected; }}
+                        onChange={e => handleSubgroupSelect(group.label, subcat, e.target.checked)}
+                        className="accent-cyan-400 mr-2"
+                        disabled={running || subIds.length === 0}
                       />
-                      <div className="flex-1">
-                        <div className="font-semibold">{tc.name}</div>
-                        <div className="text-sm text-slate-300">{tc.description}</div>
-                        {tc.docsUrl && (
-                          <a
-                            href={tc.docsUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-cyan-300 underline text-xs"
+                      <h3 className="text-lg font-medium text-cyan-300">{subcat}</h3>
+                    </div>
+                    <ul className="space-y-2">
+                      {group.testCases.filter(tc => tc.category === subcat && filteredCases.some(f => f.id === tc.id)).map(tc => (
+                        <li
+                          key={tc.id}
+                          className="flex items-center gap-3 bg-slate-800/60 rounded p-3 hover:ring-2 hover:ring-cyan-400 transition-shadow ml-6" // Increased test case indent
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selected.includes(tc.id)}
+                            onChange={() => handleSelect(tc.id)}
+                            disabled={running}
+                            className="accent-cyan-400"
+                          />
+                          <div className="flex-1">
+                            <div className="font-semibold">{tc.name}</div>
+                            <div className="text-sm text-slate-300">{tc.description}</div>
+                            {tc.docsUrl && (
+                              <a
+                                href={tc.docsUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-cyan-300 underline text-xs"
+                              >
+                                Related docs
+                              </a>
+                            )}
+                          </div>
+                          <button
+                            className={`px-3 py-1 rounded text-white text-xs font-bold medium-glow ${running || !stripeKey ? 'bg-cyan-600 opacity-50 cursor-not-allowed' : 'bg-cyan-600 hover:bg-cyan-500'}`}
+                            onClick={() => runTest(tc.id)}
+                            disabled={running || !stripeKey}
                           >
-                            Related docs
-                          </a>
-                        )}
-                      </div>
-                      <button
-                        className="px-3 py-1 rounded bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold medium-glow"
-                        onClick={() => runTest(tc.id)}
-                        disabled={running}
-                      >
-                        Run
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        ))}
+                            Run
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+        {/* Run Selected button at the bottom */}
         <button
           className="w-full mt-4 py-2 rounded bg-cyan-700 hover:bg-cyan-600 text-white font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed medium-glow"
           onClick={runSelected}
-          disabled={selected.length === 0 || running}
+          disabled={selected.length === 0 || running || !stripeKey}
         >
           Run Selected
         </button>
       </div>
       <div className="w-full max-w-2xl bg-black/70 rounded-lg p-4 shadow-inner min-h-[120px] font-mono text-xs overflow-y-auto">
         <div className="mb-2 font-bold text-cyan-300">Execution Log</div>
-        <ul>
-          {log.map((line, i) => (
-            <li key={i} dangerouslySetInnerHTML={{ __html: linkifyStripeIds(line) }} />
+        <div className="mt-6 rounded p-4 min-h-[120px] max-h-72 overflow-y-auto text-sm font-mono log-glow">
+          {log.map((entry, i) => (
+            <div key={i}>{renderLogEntry(entry)}</div>
           ))}
-        </ul>
+          <div ref={logEndRef} />
+        </div>
       </div>
     </div>
   );

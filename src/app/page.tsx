@@ -186,7 +186,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0f172a] to-[#1e293b] text-white flex flex-col items-center p-6">
-      <h1 className="text-3xl font-bold mb-4 medium-glow">
+      <h1 className="text-5xl font-bold mb-4 text-glow">
         Stripe Test Lab
       </h1>
       <form className="mb-6 flex flex-col items-center gap-2 w-full max-w-md">
@@ -325,7 +325,7 @@ export default function Home() {
         </button>
       </div>
       <div className="w-full max-w-2xl bg-black/70 rounded-lg p-4 shadow-inner min-h-[120px] font-mono text-xs overflow-y-auto">
-        <div className="mb-2 font-bold text-cyan-300">Execution Log</div>
+        <div className="mb-2 font-bold text-cyan-300 text-lg">Execution Log</div>
         <div className="mt-6 rounded p-4 min-h-[120px] max-h-72 overflow-y-auto text-sm font-mono log-glow">
           {log.map((entry, i) => (
             <div key={i}>{renderLogEntry(entry)}</div>

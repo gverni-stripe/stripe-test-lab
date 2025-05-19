@@ -2,6 +2,8 @@
 
 Stripe Test Lab is a full stack app for running and validating Stripe test scenarios, built with Next.js (App Router), TypeScript, Tailwind CSS, and ESLint. It helps developers and QA teams test their Stripe integrations using real-world scenarios for Core Payments, Connect, and Billing.
 
+This app is available at [https://stripe-test-lab.vercel.app/](https://stripe-test-lab.vercel.app/)
+
 ## Features
 
 - Securely input your Stripe secret key(s)

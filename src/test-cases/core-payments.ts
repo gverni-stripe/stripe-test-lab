@@ -123,32 +123,34 @@ export const corePayments: TestCaseGroup = {
       },
     })),
     // --- 3D Secure authentication scenarios ---
-    {
-      id: '3ds-required',
-      name: '3D Secure Required',
-      description: 'Simulate a payment that requires 3D Secure authentication.',
-      category: '3D Secure',
-      docsUrl: 'https://docs.stripe.com/testing#regulatory-cards',
-      handler: async (stripe: Stripe, params: { currency: string }) => {
-        const paymentIntent = await createTestPaymentIntent(stripe, params, 'pm_card_threeDSecure2Required');
-        return { message: `3DS Required PaymentIntent: ${paymentIntent.id}` };
-      },
-    },
-    {
-      id: '3ds-declined',
-      name: '3D Secure Declined',
-      description: 'Simulate a payment declined after 3D Secure authentication.',
-      category: '3D Secure',
-      docsUrl: 'https://docs.stripe.com/testing#regulatory-cards',
-      handler: async (stripe: Stripe, params: { currency: string }) => {
-        try {
-          await createTestPaymentIntent(stripe, params, 'pm_card_threeDSecureRequiredChargeDeclined');
-          return { message: 'Unexpected: Payment succeeded with 3DS declined card.' };
-        } catch (err) {
-          return { message: `Expected 3DS decline: ${(err as Error).message}` };
-        }
-      },
-    },
+    // 3D Secure test cannot really be simulated in the same way as other tests, 
+    // as it requires a redirect to a 3D Secure page. Leaving this test for future implementation.
+    // {
+    //   id: '3ds-required',
+    //   name: '3D Secure Required',
+    //   description: 'Simulate a payment that requires 3D Secure authentication.',
+    //   category: '3D Secure',
+    //   docsUrl: 'https://docs.stripe.com/testing#regulatory-cards',
+    //   handler: async (stripe: Stripe, params: { currency: string }) => {
+    //     const paymentIntent = await createTestPaymentIntent(stripe, params, 'pm_card_threeDSecure2Required');
+    //     return { message: `3DS Required PaymentIntent: ${paymentIntent.id}` };
+    //   },
+    // },
+    // {
+    //   id: '3ds-declined',
+    //   name: '3D Secure Declined',
+    //   description: 'Simulate a payment declined after 3D Secure authentication.',
+    //   category: '3D Secure',
+    //   docsUrl: 'https://docs.stripe.com/testing#regulatory-cards',
+    //   handler: async (stripe: Stripe, params: { currency: string }) => {
+    //     try {
+    //       await createTestPaymentIntent(stripe, params, 'pm_card_threeDSecureRequiredChargeDeclined');
+    //       return { message: 'Unexpected: Payment succeeded with 3DS declined card.' };
+    //     } catch (err) {
+    //       return { message: `Expected 3DS decline: ${(err as Error).message}` };
+    //     }
+    //   },
+    // },
     // --- Refunds ---
     {
       id: 'refund-success',

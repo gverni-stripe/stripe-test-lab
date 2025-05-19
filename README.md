@@ -28,19 +28,12 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser to use the app.
 
-## Project Requirements
-
-See [PROJECT_REQUIREMENTS.md](../PROJECT_REQUIREMENTS.md) for a full list of requirements and user stories.
-
 ## Stripe Test Case Sources
 
 - [Core Payments](https://docs.stripe.com/testing)
 - [Connect](https://docs.stripe.com/connect/testing)
 - [Billing](https://docs.stripe.com/billing/testing)
 
-## Deployment
-
-Deploy easily to Vercel or your preferred Next.js hosting provider.
 
 ## Extending Test Cases (Adding New Groups or Scenarios)
 
@@ -96,6 +89,3 @@ export const allTestCaseGroups = [
 
 This pattern makes it easy to add, remove, or update test cases and groups without changing the main app logic.
 
----
-
-This project was bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).

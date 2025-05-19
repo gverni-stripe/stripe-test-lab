@@ -6,13 +6,14 @@ function randomAmount(min = 500, max = 5000) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function createTestPaymentIntent(stripe: Stripe, params: { currency: string }, payment_method: string, amount?: number) {
+function createTestPaymentIntent(stripe: Stripe, params: { currency: string, description?: string }, payment_method: string, amount?: number) {
   return stripe.paymentIntents.create({
     amount: amount ?? randomAmount(),
     currency: params.currency,
     payment_method,
     confirm: true,
     automatic_payment_methods: { enabled: true, allow_redirects: 'never' },
+    description: params.description,
   });
 }
 
@@ -27,7 +28,7 @@ export const corePayments: TestCaseGroup = {
       category: 'Card Payments',
       docsUrl: 'https://docs.stripe.com/testing#cards',
       handler: async (stripe: Stripe, params: { currency: string }) => {
-        const paymentIntent = await createTestPaymentIntent(stripe, params, 'pm_card_visa');
+        const paymentIntent = await createTestPaymentIntent(stripe, { ...params, description: 'Simulate a successful Visa card payment.' }, 'pm_card_visa');
         return { message: `Visa PaymentIntent succeeded: ${paymentIntent.id}` };
       },
     },
@@ -38,7 +39,7 @@ export const corePayments: TestCaseGroup = {
       category: 'Card Payments',
       docsUrl: 'https://docs.stripe.com/testing#cards',
       handler: async (stripe: Stripe, params: { currency: string }) => {
-        const paymentIntent = await createTestPaymentIntent(stripe, params, 'pm_card_mastercard');
+        const paymentIntent = await createTestPaymentIntent(stripe, { ...params, description: 'Simulate a successful Mastercard payment.' }, 'pm_card_mastercard');
         return { message: `Mastercard PaymentIntent succeeded: ${paymentIntent.id}` };
       },
     },
@@ -49,7 +50,7 @@ export const corePayments: TestCaseGroup = {
       category: 'Card Payments',
       docsUrl: 'https://docs.stripe.com/testing#cards',
       handler: async (stripe: Stripe, params: { currency: string }) => {
-        const paymentIntent = await createTestPaymentIntent(stripe, params, 'pm_card_amex');
+        const paymentIntent = await createTestPaymentIntent(stripe, { ...params, description: 'Simulate a successful American Express payment.' }, 'pm_card_amex');
         return { message: `Amex PaymentIntent succeeded: ${paymentIntent.id}` };
       },
     },
@@ -61,7 +62,7 @@ export const corePayments: TestCaseGroup = {
       category: 'Cards by country',
       docsUrl: 'https://docs.stripe.com/testing#international-cards',
       handler: async (stripe: Stripe, params: { currency: string }) => {
-        const paymentIntent = await createTestPaymentIntent(stripe, params, 'pm_card_us');
+        const paymentIntent = await createTestPaymentIntent(stripe, { ...params, description: 'Simulate a successful payment from a US cardholder.' }, 'pm_card_us');
         return { message: `US PaymentIntent succeeded: ${paymentIntent.id}` };
       },
     },
@@ -72,7 +73,7 @@ export const corePayments: TestCaseGroup = {
       category: 'Cards by country',
       docsUrl: 'https://docs.stripe.com/testing#international-cards',
       handler: async (stripe: Stripe, params: { currency: string }) => {
-        const paymentIntent = await createTestPaymentIntent(stripe, params, 'pm_card_gb');
+        const paymentIntent = await createTestPaymentIntent(stripe, { ...params, description: 'Simulate a successful payment from a UK cardholder.' }, 'pm_card_gb');
         return { message: `UK PaymentIntent succeeded: ${paymentIntent.id}` };
       },
     },
@@ -83,7 +84,7 @@ export const corePayments: TestCaseGroup = {
       category: 'Cards by country',
       docsUrl: 'https://docs.stripe.com/testing#international-cards',
       handler: async (stripe: Stripe, params: { currency: string }) => {
-        const paymentIntent = await createTestPaymentIntent(stripe, params, 'pm_card_it');
+        const paymentIntent = await createTestPaymentIntent(stripe, { ...params, description: 'Simulate a successful payment from an Italian cardholder.' }, 'pm_card_it');
         return { message: `Italy PaymentIntent succeeded: ${paymentIntent.id}` };
       },
     },
@@ -105,7 +106,7 @@ export const corePayments: TestCaseGroup = {
       docsUrl: 'https://docs.stripe.com/testing#declined-payments',
       handler: async (stripe: Stripe, params: { currency: string }) => {
         try {
-          await createTestPaymentIntent(stripe, params, pm);
+          await createTestPaymentIntent(stripe, { ...params, description: `Simulate a declined payment (${reason.replace('_', ' ')}).` }, pm);
           return { message: `Unexpected: Payment succeeded with declined card (${reason})` };
         } catch (err) {
           let piId: string | undefined;
@@ -159,7 +160,7 @@ export const corePayments: TestCaseGroup = {
       category: 'Refunds',
       docsUrl: 'https://docs.stripe.com/testing#refunds',
       handler: async (stripe: Stripe, params: { currency: string }) => {
-        const paymentIntent = await createTestPaymentIntent(stripe, params, 'pm_card_pendingRefund', 1000);
+        const paymentIntent = await createTestPaymentIntent(stripe, { ...params, description: 'Simulate a successful refund (pending then succeeded).' }, 'pm_card_pendingRefund', 1000);
         const refund = await stripe.refunds.create({ payment_intent: paymentIntent.id });
         return { message: `Refund created: ${refund.id} for PaymentIntent: ${paymentIntent.id}` };
       },
@@ -171,7 +172,7 @@ export const corePayments: TestCaseGroup = {
       category: 'Refunds',
       docsUrl: 'https://docs.stripe.com/testing#refunds',
       handler: async (stripe: Stripe, params: { currency: string }) => {
-        const paymentIntent = await createTestPaymentIntent(stripe, params, 'pm_card_refundFail', 1000);
+        const paymentIntent = await createTestPaymentIntent(stripe, { ...params, description: 'Simulate a refund that fails after being created.' }, 'pm_card_refundFail', 1000);
         const refund = await stripe.refunds.create({ payment_intent: paymentIntent.id });
         return { message: `Refund (expected to fail): ${refund.id} for PaymentIntent: ${paymentIntent.id}` };
       },
@@ -184,7 +185,7 @@ export const corePayments: TestCaseGroup = {
       category: 'Disputes',
       docsUrl: 'https://docs.stripe.com/testing#disputes',
       handler: async (stripe: Stripe, params: { currency: string }) => {
-        const paymentIntent = await createTestPaymentIntent(stripe, params, 'pm_card_createDispute', 1000);
+        const paymentIntent = await createTestPaymentIntent(stripe, { ...params, description: 'Simulate a dispute and respond with winning evidence.' }, 'pm_card_createDispute', 1000);
         // Find the dispute
         const charges = await stripe.charges.list({ payment_intent: paymentIntent.id });
         const charge = charges.data[0];
@@ -209,7 +210,7 @@ export const corePayments: TestCaseGroup = {
       category: 'Disputes',
       docsUrl: 'https://docs.stripe.com/testing#disputes',
       handler: async (stripe: Stripe, params: { currency: string }) => {
-        const paymentIntent = await createTestPaymentIntent(stripe, params, 'pm_card_createDispute', 1000);
+        const paymentIntent = await createTestPaymentIntent(stripe, { ...params, description: 'Simulate a dispute and respond with losing evidence.' }, 'pm_card_createDispute', 1000);
         // Find the dispute
         const charges = await stripe.charges.list({ payment_intent: paymentIntent.id });
         const charge = charges.data[0];
@@ -230,7 +231,7 @@ export const corePayments: TestCaseGroup = {
       category: 'Disputes',
       docsUrl: 'https://docs.stripe.com/testing#disputes',
       handler: async (stripe: Stripe, params: { currency: string }) => {
-        const paymentIntent = await createTestPaymentIntent(stripe, params, 'pm_card_createDispute', 1000);
+        const paymentIntent = await createTestPaymentIntent(stripe, { ...params, description: 'Simulate a dispute and do not respond (dispute not responded).' }, 'pm_card_createDispute', 1000);
         // No response to dispute
         return { message: `Dispute created for PaymentIntent: ${paymentIntent.id} (no response sent)` };
       },
@@ -243,7 +244,7 @@ export const corePayments: TestCaseGroup = {
       category: 'Available Balance',
       docsUrl: 'https://docs.stripe.com/testing#available-balance',
       handler: async (stripe: Stripe, params: { currency: string }) => {
-        const paymentIntent = await createTestPaymentIntent(stripe, params, 'pm_card_bypassPending');
+        const paymentIntent = await createTestPaymentIntent(stripe, { ...params, description: 'Simulate a US payment that goes directly to available balance.' }, 'pm_card_bypassPending');
         return { message: `Bypass Pending (US) PaymentIntent: ${paymentIntent.id}` };
       },
     },
@@ -254,7 +255,7 @@ export const corePayments: TestCaseGroup = {
       category: 'Available Balance',
       docsUrl: 'https://docs.stripe.com/testing#available-balance',
       handler: async (stripe: Stripe, params: { currency: string }) => {
-        const paymentIntent = await createTestPaymentIntent(stripe, params, 'pm_card_bypassPendingInternational');
+        const paymentIntent = await createTestPaymentIntent(stripe, { ...params, description: 'Simulate an international payment that goes directly to available balance.' }, 'pm_card_bypassPendingInternational');
         return { message: `Bypass Pending (Intl) PaymentIntent: ${paymentIntent.id}` };
       },
     },

@@ -5,8 +5,8 @@ import type { TestCase } from '../../../test-cases/types';
 
 export async function POST(req: NextRequest) {
   try {
-    const { stripeKey, testCaseId, currency } = await req.json();
-    console.log('[API] Received POST /run-test', { testCaseId, hasStripeKey: !!stripeKey, currency });
+    const { stripeKey, testCaseId, currency, accountType, country } = await req.json();
+    console.log('[API] Received POST /run-test', { testCaseId, hasStripeKey: !!stripeKey, currency, accountType, country });
     if (!stripeKey || !testCaseId) {
       console.error('[API] Missing required fields', { stripeKey, testCaseId });
       return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 });
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     }
     let result;
     try {
-      result = await handler(stripe, { currency });
+      result = await handler(stripe, { currency, accountType: accountType || 'custom', country: country || 'US' });
     } catch (handlerError) {
       console.error('[API] Error in test case handler', { testCaseId, handlerError });
       throw handlerError;

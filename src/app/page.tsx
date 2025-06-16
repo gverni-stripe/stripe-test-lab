@@ -20,6 +20,7 @@ const ACCOUNT_TYPES = [
   { value: 'custom', label: 'Custom' },
   { value: 'express', label: 'Express' },
   { value: 'standard', label: 'Standard' },
+  { value: 'pns', label: 'PNS' },
 ];
 
 const COUNTRIES = [
@@ -53,12 +54,10 @@ export default function Home() {
   const [accountType, setAccountType] = useState('custom');
   const [country, setCountry] = useState('US');
   const logEndRef = useRef<HTMLDivElement | null>(null);
-  const shouldScrollRef = useRef(false);
 
   useEffect(() => {
-    if (shouldScrollRef.current && log.length > 0) {
+    if (log.length > 0) {
       logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      shouldScrollRef.current = false;
     }
   }, [log]);
 
@@ -88,7 +87,6 @@ export default function Home() {
   // Update runTest and runSelected to handle errors and log in red with emoji
   const runTest = async (id: string) => {
     setRunning(true);
-    shouldScrollRef.current = true;
     setLog(l => [...l, `Running test: ${id}`]);
     const result = await runTestCase(stripeKey, id, currency, accountType, country);
     if (result.error) {
@@ -101,7 +99,6 @@ export default function Home() {
 
   const runSelected = async () => {
     setRunning(true);
-    shouldScrollRef.current = true;
     for (const id of selected) {
       setLog(l => [...l, `Running test: ${id}`]);
       const result = await runTestCase(stripeKey, id, currency, accountType, country);
@@ -171,42 +168,92 @@ export default function Home() {
 
   // React version of linkifyStripeIds
   function linkifyStripeIdsReact(line: string): React.ReactNode {
-    const regex = /\b([a-z]{2,5}_[a-zA-Z0-9]+)\b/g;
     const nodes: React.ReactNode[] = [];
-    let lastIndex = 0;
-    let match;
-    while ((match = regex.exec(line)) !== null) {
-      if (match.index > lastIndex) {
-        nodes.push(line.slice(lastIndex, match.index));
-      }
-      const id = match[1];
-      let url: string | null = null;
-      for (const prefix in STRIPE_DASHBOARD_URLS) {
-        if (id.startsWith(prefix)) {
-          url = STRIPE_DASHBOARD_URLS[prefix](id);
-          break;
+    let currentIndex = 0;
+    
+    // First, find all URLs and Stripe IDs with their positions
+    const urlRegex = /https?:\/\/[^\s<>"]+/g;
+    const stripeIdRegex = /\b([a-z]{2,5}_[a-zA-Z0-9]+)\b/g;
+    
+    const items: Array<{type: 'url' | 'stripe', start: number, end: number, text: string, url?: string}> = [];
+    
+    // Find URLs
+    let urlMatch;
+    while ((urlMatch = urlRegex.exec(line)) !== null) {
+      items.push({
+        type: 'url',
+        start: urlMatch.index,
+        end: urlMatch.index + urlMatch[0].length,
+        text: urlMatch[0]
+      });
+    }
+    
+    // Find Stripe IDs that are NOT part of URLs
+    let stripeMatch;
+    stripeIdRegex.lastIndex = 0; // Reset regex
+    while ((stripeMatch = stripeIdRegex.exec(line)) !== null) {
+      const id = stripeMatch[1];
+      const start = stripeMatch.index;
+      const end = stripeMatch.index + id.length;
+      
+      // Check if this Stripe ID is inside a URL
+      const isInsideUrl = items.some(item => 
+        item.type === 'url' && start >= item.start && end <= item.end
+      );
+      
+      if (!isInsideUrl) {
+        // Check if this Stripe ID has a dashboard URL
+        let dashboardUrl: string | null = null;
+        for (const prefix in STRIPE_DASHBOARD_URLS) {
+          if (id.startsWith(prefix)) {
+            dashboardUrl = STRIPE_DASHBOARD_URLS[prefix](id);
+            break;
+          }
+        }
+        
+        if (dashboardUrl) {
+          items.push({
+            type: 'stripe',
+            start,
+            end,
+            text: id,
+            url: dashboardUrl
+          });
         }
       }
-      if (url) {
-        nodes.push(
-          <a
-            key={nodes.length}
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline text-cyan-300 hover:text-cyan-400"
-          >
-            {id}
-          </a>
-        );
-      } else {
-        nodes.push(id);
+    }
+    
+    // Sort items by start position
+    items.sort((a, b) => a.start - b.start);
+    
+    // Build the React nodes
+    items.forEach(item => {
+      // Add text before this item
+      if (item.start > currentIndex) {
+        nodes.push(line.slice(currentIndex, item.start));
       }
-      lastIndex = match.index + id.length;
+      
+      // Add the link
+      nodes.push(
+        <a
+          key={nodes.length}
+          href={item.type === 'url' ? item.text : item.url!}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline text-cyan-300 hover:text-cyan-400"
+        >
+          {item.text}
+        </a>
+      );
+      
+      currentIndex = item.end;
+    });
+    
+    // Add remaining text
+    if (currentIndex < line.length) {
+      nodes.push(line.slice(currentIndex));
     }
-    if (lastIndex < line.length) {
-      nodes.push(line.slice(lastIndex));
-    }
+    
     return nodes;
   }
 

@@ -1,140 +1,6 @@
 import Stripe from "stripe";
-import { TestCaseGroup } from "./types";
-
-// Template for account individual information
-// const ACCOUNT_INDIVIDUAL_TEMPLATE = {
-//   dob: { day: 1, month: 1, year: 1901 }, // Use 1901-01-01 for successful verification
-//   first_name: "John",
-//   last_name: "Doe",
-//   email: "john.doe@example.com",
-//   phone: "0000000000", // Test phone number for successful validation
-//   address: {
-//     line1: "address_full_match", // Test address token for successful verification
-//     city: "San Francisco",
-//     state: "CA",
-//     postal_code: "94105",
-//     country: "US",
-//   },
-//   id_number: "000000000", // Test SSN for successful verification
-// };
-
-// Template for person information (for custom accounts)
-const PERSON_TEMPLATE = {
-  dob: { day: 1, month: 1, year: 1901 }, // Use 1901-01-01 for successful verification
-  first_name: "Jane",
-  last_name: "Smith",
-  email: "jane.smith@example.com",
-  phone: "0000000000", // Test phone number for successful validation
-  address: {
-    line1: "address_full_match", // Test address token for successful verification
-    city: "San Francisco",
-    state: "CA",
-    postal_code: "94105",
-    country: "US",
-  },
-  id_number: "000000000", // Test SSN for successful verification
-  relationship: {
-    director: true,
-    executive: true,
-    owner: true,
-    percent_ownership: 50,
-    representative: true,
-    title: "CEO",
-  },
-  verification: {
-    document: {
-      front: "file_identity_document_success",
-    },
-  },
-  metadata: {
-    application: "Created with https://stripe-test-lab.vercel.app/",
-  },
-};
-
-// Template for business information
-// const BUSINESS_TEMPLATE = {
-//   name: "Test Business LLC",
-//   tax_id: "000000000", // Test business tax ID for successful verification
-//   url: "https://example.com",
-//   phone: "0000000000",
-//   address: {
-//     line1: "address_full_match", // Test address for successful verification
-//     city: "San Francisco",
-//     state: "CA",
-//     postal_code: "94105",
-//     country: "US",
-//   },
-//   structure: "llc" as const,
-//   industry: "software_publishing",
-//   product_description: "Software development services",
-// };
-
-const COMPANY_TEMPLATE = {
-  business_profile: {
-    mcc: "5734",
-    name: "Connected Account",
-    product_description: "Product Description",
-    url: "https://accessible.stripe.com",
-    support_phone: "+44345 300 0000",
-  },
-  business_type: "company" as const,
-  company: {
-    address: {
-      city: "London",
-      country: "GB",
-      line1: "21 Old Street",
-      postal_code: "EC1M 7AD",
-      state: undefined,
-    },
-    name: "Connected Account (DBA)",
-    phone: "+447400123456",
-    tax_id: "12345678",
-  },
-  default_currency: "gbp",
-  capabilities: {
-    card_payments: {
-      requested: true,
-    },
-    transfers: {
-      requested: true,
-    },
-  },
-  external_account: "btok_gb_gbp",
-  metadata: {
-    application: "Created with https://stripe-test-lab.vercel.app/",
-  },
-};
-
-// Helper function to create account data based on account type
-function createAccountData(
-  accountType: string,
-  country: string
-): Stripe.AccountCreateParams {
-  const accountData: Stripe.AccountCreateParams = {
-    country: country,
-    email: `test+${Date.now()}@example.com`,
-    ...COMPANY_TEMPLATE,
-  };
-
-  if (accountType === "pns") {
-    accountData.controller = {
-      losses: { payments: "stripe" },
-      fees: { payer: "application" },
-      requirement_collection: "stripe",
-      stripe_dashboard: { type: "none" },
-    };
-  } else {
-    accountData.type = accountType as "express" | "standard" | "custom";
-    if (accountType === "custom") {
-      accountData.tos_acceptance = {
-        date: Math.floor(Date.now() / 1000),
-        ip: "127.0.0.1",
-      };
-    }
-  }
-
-  return accountData;
-}
+import { TestCaseGroup } from "../types";
+import { PERSON_TEMPLATE, createAccountData } from "./test-data";
 
 export const connect: TestCaseGroup = {
   label: "Connect",
@@ -160,15 +26,15 @@ export const connect: TestCaseGroup = {
         // Step 2 - Create Person
         await stripe.accounts.createPerson(account.id, PERSON_TEMPLATE);
 
-        // Step 3 - Confirm Onwerhsip Declaration
+        // Step 3 - Confirm Ownership Declaration
         await stripe.accounts.update(account.id, {
           company: {
             owners_provided: true,
             directors_provided: true,
             executives_provided: true,
             ownership_declaration: {
+              date: Math.floor(Date.now() / 1000),
               ip: "127.0.0.1",
-              date: 1715193372,
             },
           },
         });
@@ -176,7 +42,10 @@ export const connect: TestCaseGroup = {
         let message = `${params.accountType} account created: ${account.id}`;
 
         // Step 4 - For requirement_collection: "stripe" create an account link to complete onboarding
-        if (accountData.controller?.requirement_collection === "stripe") {
+        if (
+          accountData.controller?.requirement_collection === "stripe" ||
+          accountData.type === "express"
+        ) {
           const accountLink = await stripe.accountLinks.create({
             account: account.id,
             refresh_url: "https://example.com/refresh",
@@ -524,4 +393,4 @@ export const connect: TestCaseGroup = {
     //   },
     // },
   ],
-};
+}; 

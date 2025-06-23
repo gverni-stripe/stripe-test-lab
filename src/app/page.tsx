@@ -19,7 +19,6 @@ const CURRENCIES = [
 const ACCOUNT_TYPES = [
   { value: 'custom', label: 'Custom' },
   { value: 'express', label: 'Express' },
-  { value: 'standard', label: 'Standard' },
   { value: 'pns', label: 'PNS' },
 ];
 
@@ -313,7 +312,7 @@ export default function Home() {
 
           <div>
             <label htmlFor="country" className="text-lg font-medium block mb-2">
-              Account Country
+              Connected Account Country
             </label>
             <select
               id="country"

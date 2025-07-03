@@ -12,7 +12,7 @@ function createTestPaymentIntent(
     currency: string;
     description?: string;
     connectPayment?: boolean;
-    paymentMethod?: string;
+    connectPaymentFlow?: string;
     applicationFee?: string;
     destinationAccountId?: string;
   },
@@ -31,7 +31,7 @@ function createTestPaymentIntent(
   // Handle Destination Charge with application fee
   if (
     params.connectPayment &&
-    params.paymentMethod === "destination" &&
+    params.connectPaymentFlow === "destination" &&
     params.destinationAccountId
   ) {
     paymentIntentData.transfer_data = {
@@ -49,7 +49,7 @@ function createTestPaymentIntent(
   // Handle Direct Charge with application fee
   if (
     params.connectPayment &&
-    params.paymentMethod === "direct" &&
+    params.connectPaymentFlow === "direct" &&
     params.destinationAccountId
   ) {
     // Add application fee if specified
@@ -69,7 +69,7 @@ async function createTestPaymentWithTransfer(
     currency: string;
     description?: string;
     connectPayment?: boolean;
-    paymentMethod?: string;
+    connectPaymentFlow?: string;
     applicationFee?: string;
     destinationAccountId?: string;
   },
@@ -128,7 +128,7 @@ async function executePaymentTest(
   params: {
     currency: string;
     connectPayment: boolean;
-    paymentMethod: string;
+    connectPaymentFlow: string;
     applicationFee: string;
     destinationAccountId: string;
   },
@@ -140,14 +140,14 @@ async function executePaymentTest(
   // Modify description based on connect payment type
   let finalDescription = description;
   if (params.connectPayment) {
-    if (params.paymentMethod === "direct") {
+    if (params.connectPaymentFlow === "direct") {
       finalDescription += " (Direct Charge)";
-    } else if (params.paymentMethod === "destination") {
+    } else if (params.connectPaymentFlow === "destination") {
       finalDescription += " (Destination Charge)";
     }
   }
 
-  if (params.connectPayment && params.paymentMethod === "separate") {
+  if (params.connectPayment && params.connectPaymentFlow === "separate") {
     const result = await createTestPaymentWithTransfer(
       stripe,
       { ...params, description: finalDescription },
@@ -184,7 +184,7 @@ async function executePaymentTest(
 
          // Add connect payment details to message
      if (params.connectPayment && params.destinationAccountId) {
-       const chargeType = params.paymentMethod === "direct" ? "Direct charge" : "Destination charge";
+       const chargeType = params.connectPaymentFlow === "direct" ? "Direct charge" : "Destination charge";
        message += ` (${chargeType} to ${params.destinationAccountId}`;
        if (params.applicationFee && !isNaN(parseInt(params.applicationFee))) {
          message += `, application fee: ${(parseInt(params.applicationFee) / 100).toFixed(2)} ${params.currency.toUpperCase()}`;
@@ -211,7 +211,7 @@ export const corePayments: TestCaseGroup = {
         params: {
           currency: string;
           connectPayment: boolean;
-          paymentMethod: string;
+          connectPaymentFlow: string;
           applicationFee: string;
           destinationAccountId: string;
         }
@@ -237,7 +237,7 @@ export const corePayments: TestCaseGroup = {
         params: {
           currency: string;
           connectPayment: boolean;
-          paymentMethod: string;
+          connectPaymentFlow: string;
           applicationFee: string;
           destinationAccountId: string;
         }
@@ -263,7 +263,7 @@ export const corePayments: TestCaseGroup = {
         params: {
           currency: string;
           connectPayment: boolean;
-          paymentMethod: string;
+          connectPaymentFlow: string;
           applicationFee: string;
           destinationAccountId: string;
         }

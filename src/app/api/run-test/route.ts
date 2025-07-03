@@ -5,8 +5,8 @@ import type { TestCase } from '../../../test-cases/types';
 
 export async function POST(req: NextRequest) {
   try {
-    const { stripeKey, testCaseId, currency, accountType, country, connectPayment, paymentMethod, applicationFee, destinationAccountId } = await req.json();
-    console.log('[API] Received POST /run-test', { testCaseId, hasStripeKey: !!stripeKey, currency, accountType, country, connectPayment, paymentMethod, destinationAccountId });
+    const { stripeKey, testCaseId, currency, accountType, country, connectPayment, connectPaymentFlow, applicationFee, destinationAccountId } = await req.json();
+    console.log('[API] Received POST /run-test', { testCaseId, hasStripeKey: !!stripeKey, currency, accountType, country, connectPayment, connectPaymentFlow, destinationAccountId });
     if (!stripeKey || !testCaseId) {
       console.error('[API] Missing required fields', { stripeKey, testCaseId });
       return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 });
@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     
     // Create Stripe instance with appropriate headers for Direct Charge
     let stripe: Stripe;
-    if (connectPayment && paymentMethod === 'direct' && destinationAccountId) {
+    if (connectPayment && connectPaymentFlow === 'direct' && destinationAccountId) {
       stripe = new Stripe(stripeKey, { 
         apiVersion: '2025-04-30.basil',
         stripeAccount: destinationAccountId
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
         accountType: accountType || 'custom', 
         country: country || 'US',
         connectPayment: connectPayment || false,
-        paymentMethod: paymentMethod || 'direct',
+        connectPaymentFlow: connectPaymentFlow || 'direct',
         applicationFee: applicationFee || '',
         destinationAccountId: destinationAccountId || ''
       });

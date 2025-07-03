@@ -53,7 +53,7 @@ export default function Home() {
   const [accountType, setAccountType] = useState('custom');
   const [country, setCountry] = useState('US');
   const [connectPayment, setConnectPayment] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('direct');
+  const [connectPaymentFlow, setConnectPaymentFlow] = useState('direct');
   const [applicationFee, setApplicationFee] = useState('');
   const [destinationAccountId, setDestinationAccountId] = useState('');
   const logEndRef = useRef<HTMLDivElement | null>(null);
@@ -108,7 +108,7 @@ export default function Home() {
         accountType, 
         country,
         connectPayment,
-        paymentMethod,
+        connectPaymentFlow,
         applicationFee,
         destinationAccountId
       }),
@@ -358,13 +358,13 @@ export default function Home() {
             <>
               <div>
                 <label htmlFor="payment-method" className="form-label">
-                  Payment Type
+                  Payment Flow
                 </label>
                 <select
                   id="payment-method"
                   className="select-input"
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
+                                value={connectPaymentFlow}
+              onChange={(e) => setConnectPaymentFlow(e.target.value)}
                 >
                   <option value="direct">Direct Charge</option>
                   <option value="destination">Destination Charge</option>

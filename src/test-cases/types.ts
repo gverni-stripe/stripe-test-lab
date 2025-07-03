@@ -11,7 +11,7 @@ export type TestCase = {
     accountType: string; 
     country: string;
     connectPayment: boolean;
-    paymentMethod: string;
+    connectPaymentFlow: string;
     applicationFee: string;
     destinationAccountId: string;
   } & Record<string, unknown>) => Promise<{ message: string }>;

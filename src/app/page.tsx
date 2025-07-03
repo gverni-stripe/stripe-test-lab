@@ -52,6 +52,10 @@ export default function Home() {
   const [currency, setCurrency] = useState('usd');
   const [accountType, setAccountType] = useState('custom');
   const [country, setCountry] = useState('US');
+  const [connectPayment, setConnectPayment] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('direct');
+  const [applicationFee, setApplicationFee] = useState('');
+  const [destinationAccountId, setDestinationAccountId] = useState('');
   const logEndRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -67,6 +71,25 @@ export default function Home() {
       tc.description.toLowerCase().includes(search.toLowerCase())
   );
 
+  // Helper function to check if a test case can be run
+  const canRunTest = (testCase: TestCase) => {
+    // If Connect payment is enabled, check if destination account ID is provided for core payment tests
+    if (connectPayment && !destinationAccountId.trim()) {
+      // Find the group this test case belongs to
+      const group = allTestCaseGroups.find(g => g.testCases.some(tc => tc.id === testCase.id));
+      if (group && group.label === 'Core Payments') {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  // Helper function to check if any selected tests can be run
+  const canRunSelectedTests = () => {
+    const selectedTestCases = allTestCases.filter(tc => selected.includes(tc.id));
+    return selectedTestCases.some(tc => canRunTest(tc));
+  };
+
   const handleSelect = (id: string) => {
     setSelected((sel) =>
       sel.includes(id) ? sel.filter((s) => s !== id) : [...sel, id]
@@ -78,7 +101,17 @@ export default function Home() {
     const res = await fetch('/api/run-test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ stripeKey, testCaseId, currency, accountType, country }),
+      body: JSON.stringify({ 
+        stripeKey, 
+        testCaseId, 
+        currency, 
+        accountType, 
+        country,
+        connectPayment,
+        paymentMethod,
+        applicationFee,
+        destinationAccountId
+      }),
     });
     return res.json();
   }
@@ -98,16 +131,26 @@ export default function Home() {
 
   const runSelected = async () => {
     setRunning(true);
-    for (const id of selected) {
-      setLog(l => [...l, `Running test: ${id}`]);
-      const result = await runTestCase(stripeKey, id, currency, accountType, country);
+    const selectedTestCases = allTestCases.filter(tc => selected.includes(tc.id));
+    const runnableTests = selectedTestCases.filter(tc => canRunTest(tc));
+    const skippedTests = selectedTestCases.filter(tc => !canRunTest(tc));
+
+    // Log skipped tests
+    for (const tc of skippedTests) {
+      setLog(l => [...l, `<span class='text-yellow-400'>⚠️ Skipped test: ${tc.id} (Connect payment enabled but destination account ID missing)</span>`]);
+    }
+
+    // Run the tests that can be run
+    for (const tc of runnableTests) {
+      setLog(l => [...l, `Running test: ${tc.id}`]);
+      const result = await runTestCase(stripeKey, tc.id, currency, accountType, country);
       if (result.error) {
         setLog(l => [...l, `<span class='text-red-400'>❌ Test failed: ${result.error}</span>`]);
       } else {
-        setLog(l => [...l, `<span class='text-green-400'>✅ ${result.message || `Test completed: ${id}`}</span>`]);
+        setLog(l => [...l, `<span class='text-green-400'>✅ ${result.message || `Test completed: ${tc.id}`}</span>`]);
       }
     }
-    setLog(l => [...l, "<span class='text-cyan-300'>🎉 All selected test cases have been executed.</span>"]);
+    setLog(l => [...l, "<span class='text-cyan-300'>🎉 All runnable selected test cases have been executed.</span>"]);
     setRunning(false);
   };
 
@@ -264,13 +307,13 @@ export default function Home() {
         
         <div className="flex flex-col gap-4">
           <div>
-            <label htmlFor="stripe-key" className="text-lg font-medium block mb-2">
+            <label htmlFor="stripe-key" className="form-label">
               Stripe Secret Key
             </label>
             <input
               id="stripe-key"
               type="password"
-              className="w-full px-4 py-2 rounded bg-slate-800 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-400 medium-glow"
+              className="input-field"
               placeholder="sk_test_..."
               value={stripeKey}
               onChange={(e) => setStripeKey(e.target.value)}
@@ -278,13 +321,16 @@ export default function Home() {
             />
           </div>
 
+          {/* Divider under Stripe Secret Key */}
+          <div className="divider"></div>
+
           <div>
-            <label htmlFor="currency" className="text-lg font-medium block mb-2">
-              Currency
+            <label htmlFor="currency" className="form-label">
+              Payment currency
             </label>
             <select
               id="currency"
-              className="w-full pl-4 pr-32 py-2 rounded bg-slate-800 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-400 medium-glow"
+              className="select-input"
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
             >
@@ -295,12 +341,81 @@ export default function Home() {
           </div>
 
           <div>
-            <label htmlFor="account-type" className="text-lg font-medium block mb-2">
+            <label className="flex items-center form-label">
+              <input
+                id="connect-payment"
+                type="checkbox"
+                checked={connectPayment}
+                onChange={(e) => setConnectPayment(e.target.checked)}
+                className="checkbox-cyan"
+              />
+              Connect Payment
+            </label>
+          </div>
+
+          {/* Conditional Connect Payment options */}
+          {connectPayment && (
+            <>
+              <div>
+                <label htmlFor="payment-method" className="form-label">
+                  Payment Type
+                </label>
+                <select
+                  id="payment-method"
+                  className="select-input"
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                >
+                  <option value="direct">Direct Charge</option>
+                  <option value="destination">Destination Charge</option>
+                  <option value="separate">Separate charge and transfer</option>
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="application-fee" className="form-label">
+                  Application fee
+                </label>
+                <input
+                  id="application-fee"
+                  type="text"
+                  className="input-field"
+                  placeholder="0"
+                  value={applicationFee}
+                  onChange={(e) => {
+                    // Only allow numeric characters
+                    const value = e.target.value.replace(/[^0-9]/g, '');
+                    setApplicationFee(value);
+                  }}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="destination-account-id" className="form-label">
+                  Destination account id
+                </label>
+                <input
+                  id="destination-account-id"
+                  type="text"
+                  className="input-field"
+                  placeholder="acct_..."
+                  value={destinationAccountId}
+                  onChange={(e) => setDestinationAccountId(e.target.value)}
+                />
+              </div>
+            </>
+          )}
+
+          {/* Divider */}
+          <div className="divider"></div>
+
+          <div>
+            <label htmlFor="account-type" className="form-label">
               Connect Account Type
             </label>
             <select
               id="account-type"
-              className="w-full pl-4 pr-32 py-2 rounded bg-slate-800 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-400 medium-glow"
+              className="select-input"
               value={accountType}
               onChange={(e) => setAccountType(e.target.value)}
             >
@@ -311,12 +426,12 @@ export default function Home() {
           </div>
 
           <div>
-            <label htmlFor="country" className="text-lg font-medium block mb-2">
+            <label htmlFor="country" className="form-label">
               Connected Account Country
             </label>
             <select
               id="country"
-              className="w-full pl-4 pr-32 py-2 rounded bg-slate-800 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-400 medium-glow"
+              className="select-input"
               value={country}
               onChange={(e) => setCountry(e.target.value)}
             >
@@ -338,7 +453,7 @@ export default function Home() {
           <div className="mb-4 w-full max-w-2xl flex flex-col gap-2">
             <input
               type="text"
-              className="w-full px-4 py-2 rounded bg-slate-800 border border-slate-600 focus:outline-none focus:ring-2 focus:ring-cyan-400 medium-glow"
+              className="input-field"
               placeholder="Search test cases..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -348,9 +463,9 @@ export default function Home() {
           <div className="w-full max-w-2xl bg-slate-900/80 rounded-lg p-4 shadow-lg mb-6">
             {/* Run Selected button at the top */}
             <button
-              className="w-full mb-4 py-2 rounded bg-cyan-700 hover:bg-cyan-600 text-white font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed medium-glow"
+              className="button-primary mb-4"
               onClick={runSelected}
-              disabled={selected.length === 0 || running || !stripeKey}
+              disabled={selected.length === 0 || running || !stripeKey || !canRunSelectedTests()}
             >
               Run Selected
             </button>
@@ -360,16 +475,16 @@ export default function Home() {
               const someGroupSelected = groupIds.some(id => selected.includes(id));
               return (
                 <div key={group.label} className="mb-4">
-                  <div className="flex items-center mb-2">
+                  <div className="group-header">
                     <input
                       type="checkbox"
                       checked={allGroupSelected}
                       ref={el => { if (el) el.indeterminate = !allGroupSelected && someGroupSelected; }}
                       onChange={e => handleGroupSelect(group.label, e.target.checked)}
-                      className="accent-cyan-400 mr-2"
+                      className="checkbox-cyan"
                       disabled={running || groupIds.length === 0}
                     />
-                    <h2 className="text-xl font-semibold">{group.label}</h2>
+                    <h2 className="group-title">{group.label}</h2>
                   </div>
                   {/* Group by subcategory (category) */}
                   {Array.from(new Set(group.testCases.map(tc => tc.category))).map(subcat => {
@@ -384,23 +499,23 @@ export default function Home() {
                             checked={allSubSelected}
                             ref={el => { if (el) el.indeterminate = !allSubSelected && someSubSelected; }}
                             onChange={e => handleSubgroupSelect(group.label, subcat, e.target.checked)}
-                            className="accent-cyan-400 mr-2"
+                            className="checkbox-cyan"
                             disabled={running || subIds.length === 0}
                           />
-                          <h3 className="text-lg font-medium text-cyan-300">{subcat}</h3>
+                          <h3 className="subgroup-title">{subcat}</h3>
                         </div>
                         <ul className="space-y-2">
                           {group.testCases.filter(tc => tc.category === subcat && filteredCases.some(f => f.id === tc.id)).map(tc => (
                             <li
                               key={tc.id}
-                              className="flex items-center gap-3 bg-slate-800/60 rounded p-3 hover:ring-2 hover:ring-cyan-400 transition-shadow ml-6" // Increased test case indent
+                              className="test-case-item"
                             >
                               <input
                                 type="checkbox"
                                 checked={selected.includes(tc.id)}
                                 onChange={() => handleSelect(tc.id)}
                                 disabled={running}
-                                className="accent-cyan-400"
+                                className="checkbox-cyan-solo"
                               />
                               <div className="flex-1">
                                 <div className="font-semibold">{tc.name}</div>
@@ -410,16 +525,16 @@ export default function Home() {
                                     href={tc.docsUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-cyan-300 underline text-xs"
+                                    className="link-cyan"
                                   >
                                     Related docs
                                   </a>
                                 )}
                               </div>
                               <button
-                                className={`px-3 py-1 rounded text-white text-xs font-bold medium-glow ${running || !stripeKey ? 'bg-cyan-600 opacity-50 cursor-not-allowed' : 'bg-cyan-600 hover:bg-cyan-500'}`}
+                                className="button-small"
                                 onClick={() => runTest(tc.id)}
-                                disabled={running || !stripeKey}
+                                disabled={running || !stripeKey || !canRunTest(tc)}
                               >
                                 Run
                               </button>
@@ -434,9 +549,9 @@ export default function Home() {
             })}
             {/* Run Selected button at the bottom */}
             <button
-              className="w-full mt-4 py-2 rounded bg-cyan-700 hover:bg-cyan-600 text-white font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed medium-glow"
+              className="button-primary mt-4"
               onClick={runSelected}
-              disabled={selected.length === 0 || running || !stripeKey}
+              disabled={selected.length === 0 || running || !stripeKey || !canRunSelectedTests()}
             >
               Run Selected
             </button>

@@ -5,14 +5,24 @@ import type { TestCase } from '../../../test-cases/types';
 
 export async function POST(req: NextRequest) {
   try {
-    const { stripeKey, testCaseId, currency, accountType, country } = await req.json();
-    console.log('[API] Received POST /run-test', { testCaseId, hasStripeKey: !!stripeKey, currency, accountType, country });
+    const { stripeKey, testCaseId, currency, accountType, country, connectPayment, paymentMethod, applicationFee, destinationAccountId } = await req.json();
+    console.log('[API] Received POST /run-test', { testCaseId, hasStripeKey: !!stripeKey, currency, accountType, country, connectPayment, paymentMethod, destinationAccountId });
     if (!stripeKey || !testCaseId) {
       console.error('[API] Missing required fields', { stripeKey, testCaseId });
       return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 });
     }
-    // Use the latest Stripe API version for this SDK
-    const stripe = new Stripe(stripeKey, { apiVersion: '2025-04-30.basil' });
+    
+    // Create Stripe instance with appropriate headers for Direct Charge
+    let stripe: Stripe;
+    if (connectPayment && paymentMethod === 'direct' && destinationAccountId) {
+      stripe = new Stripe(stripeKey, { 
+        apiVersion: '2025-04-30.basil',
+        stripeAccount: destinationAccountId
+      });
+    } else {
+      stripe = new Stripe(stripeKey, { apiVersion: '2025-04-30.basil' });
+    }
+    
     const handler = getTestCaseHandler(testCaseId);
     if (!handler) {
       console.error('[API] Unknown test case', { testCaseId });
@@ -20,7 +30,15 @@ export async function POST(req: NextRequest) {
     }
     let result;
     try {
-      result = await handler(stripe, { currency, accountType: accountType || 'custom', country: country || 'US' });
+      result = await handler(stripe, { 
+        currency, 
+        accountType: accountType || 'custom', 
+        country: country || 'US',
+        connectPayment: connectPayment || false,
+        paymentMethod: paymentMethod || 'direct',
+        applicationFee: applicationFee || '',
+        destinationAccountId: destinationAccountId || ''
+      });
     } catch (handlerError) {
       console.error('[API] Error in test case handler', { testCaseId, handlerError });
       throw handlerError;

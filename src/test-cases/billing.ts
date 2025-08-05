@@ -166,7 +166,8 @@ export const billing: TestCaseGroup = {
       category: 'Subscription Creation',
       docsUrl: 'https://docs.stripe.com/billing/testing#payment-failures',
       handler: async (stripe: Stripe) => {
-        const customer = await stripe.customers.create();
+        const testClock = await createTestClock(stripe);
+        const customer = await createCustomerWithTestClock(stripe, 'failure@example.com', 'Failure Test Company', testClock.id);
         try {
           await stripe.subscriptions.create({
             customer: customer.id,
@@ -176,7 +177,7 @@ export const billing: TestCaseGroup = {
           });
           return { message: 'Unexpected: Subscription succeeded with declined card.' };
         } catch (err) {
-          return { message: `Expected subscription failure: ${(err as Error).message}` };
+          return { message: `Expected subscription failure: ${(err as Error).message}`, testClockId: testClock.id };
         }
       },
     },
@@ -188,7 +189,8 @@ export const billing: TestCaseGroup = {
       docsUrl: 'https://docs.stripe.com/billing/subscriptions/overview',
       handler: async (stripe: Stripe) => {
         const randomSuffix = generateRandomSuffix();
-        const customer = await createCustomer(stripe, 'workflow@example.com', 'Workflow Test Company');
+        const testClock = await createTestClock(stripe);
+        const customer = await createCustomerWithTestClock(stripe, 'workflow@example.com', 'Workflow Test Company', testClock.id);
         const product = await createProduct(stripe, 'SaaS Subscription Basic Tier', 'basic');
         const price = await createPrice(stripe, product.id, 49900, 'basic');
         const feature = await createEntitlementFeature(stripe, `access_basic_${randomSuffix}`, 'Basic Access', 'basic');
@@ -198,6 +200,7 @@ export const billing: TestCaseGroup = {
         return { 
           message: 'Complete subscription workflow executed successfully',
           workflow: {
+            testClockId: testClock.id,
             customerId: customer.id,
             productId: product.id,
             priceId: price.id,
@@ -217,7 +220,8 @@ export const billing: TestCaseGroup = {
       docsUrl: 'https://docs.stripe.com/billing/subscriptions/overview',
       handler: async (stripe: Stripe) => {
         const randomSuffix = generateRandomSuffix();
-        const customer = await createCustomer(stripe, 'premium@example.com', 'Premium Test Company');
+        const testClock = await createTestClock(stripe);
+        const customer = await createCustomerWithTestClock(stripe, 'premium@example.com', 'Premium Test Company', testClock.id);
         const paymentMethod = await addPaymentMethodToCustomer(stripe, customer.id);
         const product = await createProduct(stripe, 'SaaS Subscription Premium Tier', 'premium');
         const price = await createPrice(stripe, product.id, 99900, 'premium');
@@ -228,6 +232,7 @@ export const billing: TestCaseGroup = {
         return { 
           message: 'Subscription with payment method workflow executed successfully',
           workflow: {
+            testClockId: testClock.id,
             customerId: customer.id,
             paymentMethodId: paymentMethod.id,
             productId: product.id,

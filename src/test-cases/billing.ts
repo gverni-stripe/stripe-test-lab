@@ -12,24 +12,6 @@ async function createTestClock(stripe: Stripe) {
   });
 }
 
-async function createCustomer(stripe: Stripe, email: string, name: string) {
-  return await stripe.customers.create({
-    email,
-    name,
-    description: 'Full workflow test customer',
-    shipping: {
-      address: {
-        city: 'New York',
-        country: 'US',
-        line1: '456 Broadway',
-        postal_code: '10013',
-        state: 'NY',
-      },
-      name,
-    },
-  });
-}
-
 async function createCustomerWithTestClock(stripe: Stripe, email: string, name: string, testClockId: string) {
   return await stripe.customers.create({
     email,

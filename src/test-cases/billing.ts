@@ -6,9 +6,10 @@ function generateRandomSuffix(): string {
   return Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
 }
 
-async function createTestClock(stripe: Stripe) {
+async function createTestClock(stripe: Stripe, name?: string) {
   return await stripe.testHelpers.testClocks.create({
     frozen_time: Math.floor(Date.now() / 1000),
+    name,
   });
 }
 
@@ -148,7 +149,7 @@ export const billing: TestCaseGroup = {
       category: 'Subscription Creation',
       docsUrl: 'https://docs.stripe.com/billing/testing#payment-failures',
       handler: async (stripe: Stripe) => {
-        const testClock = await createTestClock(stripe);
+        const testClock = await createTestClock(stripe, 'Payment Failure');
         const customer = await createCustomerWithTestClock(stripe, 'failure@example.com', 'Failure Test Company', testClock.id);
         try {
           await stripe.subscriptions.create({
@@ -171,7 +172,7 @@ export const billing: TestCaseGroup = {
       docsUrl: 'https://docs.stripe.com/billing/subscriptions/overview',
       handler: async (stripe: Stripe) => {
         const randomSuffix = generateRandomSuffix();
-        const testClock = await createTestClock(stripe);
+        const testClock = await createTestClock(stripe, 'Trial Subscription');
         const customer = await createCustomerWithTestClock(stripe, 'workflow@example.com', 'Workflow Test Company', testClock.id);
         const product = await createProduct(stripe, 'SaaS Subscription Basic Tier', 'basic');
         const price = await createPrice(stripe, product.id, 49900, 'basic');
@@ -202,7 +203,7 @@ export const billing: TestCaseGroup = {
       docsUrl: 'https://docs.stripe.com/billing/subscriptions/overview',
       handler: async (stripe: Stripe) => {
         const randomSuffix = generateRandomSuffix();
-        const testClock = await createTestClock(stripe);
+        const testClock = await createTestClock(stripe, 'Premium Subscription');
         const customer = await createCustomerWithTestClock(stripe, 'premium@example.com', 'Premium Test Company', testClock.id);
         const paymentMethod = await addPaymentMethodToCustomer(stripe, customer.id);
         const product = await createProduct(stripe, 'SaaS Subscription Premium Tier', 'premium');
@@ -235,7 +236,7 @@ export const billing: TestCaseGroup = {
       docsUrl: 'https://docs.stripe.com/billing/subscriptions/overview',
       handler: async (stripe: Stripe) => {
         const randomSuffix = generateRandomSuffix();
-        const testClock = await createTestClock(stripe);
+        const testClock = await createTestClock(stripe, 'Mid-cycle Upgrade');
         const customer = await createCustomerWithTestClock(stripe, 'super-premium@example.com', 'Super Premium Test Company', testClock.id);
         const paymentMethod = await addPaymentMethodToCustomer(stripe, customer.id);
         const product = await createProduct(stripe, 'SaaS Subscription Premium Tier', 'premium');
